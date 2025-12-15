@@ -1,0 +1,63 @@
+workflows:
+  amethyst-ios-native:
+    name: Amethyst iOS Native
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+
+    environment:
+      ios_signing:
+        # Change to ad_hoc / app_store / enterprise if you use those
+        distribution_type: development
+        # Must match Info.plist / project and your Apple App ID + profile
+        bundle_identifier: org.angelauramc.amethyst
+      vars:
+        # Keep this in sync with bundle_identifier above
+        BUNDLE_ID: "org.angelauramc.amethyst"
+        # Amethyst-iOS uses a normal Xcode project
+        XCODE_PROJECT: "Amethyst.xcodeproj"
+        # Main app scheme name (adjust if your fork changed it)
+        XCODE_SCHEME: "Amethyst"
+      xcode: latest
+      cocoapods: default
+
+    scripts:
+      - name: Init git submodules
+        script: |
+          git submodule update --init --recursive
+
+      # If the repo ever adds a Podfile / workspace, this will run; otherwise it’s a no-op.
+      - name: Install CocoaPods dependencies (if any)
+        script: |
+          if [ -f "Podfile" ]; then
+            pod install
+          fi
+
+      - name: Set up provisioning profiles on Xcode project
+        script: xcode-project use-profiles
+
+      - name: Build ipa for distribution
+        script: |
+          # If the project later switches to Amethyst.xcworkspace, replace
+          # --project with the commented workspace version below:
+          #
+          # xcode-project build-ipa \
+          #   --workspace "$CM_BUILD_DIR/Amethyst.xcworkspace" \
+          #   --scheme "$XCODE_SCHEME"
+          xcode-project build-ipa \
+            --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    # Optional email notifications; safe to leave as-is or remove entirely.
+    # publishing:
+    #   email:
+    #     recipients:
+    #       - your_email@example.com
+    #     notify:
+    #       success: true
+    #       failure: false

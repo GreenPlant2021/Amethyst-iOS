@@ -1,5 +1,7 @@
 name: Release build
 
+runs-on: [self-hosted, windows, x64]
+
 on:
   workflow_dispatch
 

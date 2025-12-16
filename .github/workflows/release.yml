@@ -6,7 +6,6 @@ on:
 jobs:
   build:
     name: Release build
-    runs-on: [self-hosted, Windows, X64]
     strategy:
       matrix:
         include:
@@ -19,6 +18,7 @@ jobs:
           - platform: 8
             platform_name: tvossimulator
     
+    runs-on: MacStadium
     steps:
       - name: Remove work folders
         env:

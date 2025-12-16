@@ -1,12 +1,11 @@
 name: Release build
 
 on:
-  workflow_dispatch:
+  workflow_dispatch
 
 jobs:
   build:
     name: Release build
-
     strategy:
       matrix:
         include:
@@ -18,41 +17,34 @@ jobs:
             platform_name: iossimulator
           - platform: 8
             platform_name: tvossimulator
-
-    # For GitHub-hosted Windows runner use this:
-    # runs-on: windows-latest
-    # For your own Windows runner keep this:
-    runs-on: self-hosted
-
+    
+    runs-on: MacStadium
     steps:
       - name: Remove work folders
-        shell: bash
         env:
           password: ${{ secrets.ELLIE_MINI_SECRET }}
         run: |
           echo "before"
           ls -lah ./
-          echo "$password" | sudo -S rm -rf ./* || true
-          echo "$password" | sudo -S rm -rf ./.??* || true
+          echo $password | sudo -S rm -rf ./* || true
+          echo $password | sudo -S rm -rf ./.??* || true
           echo "after"
           ls -lah ./
-
+          
       - name: Checkout repository
         uses: actions/checkout@main
 
       - name: Checkout repository submodules
-        shell: bash
         run: git submodule update --init --recursive
 
       - name: Get gl4es latest commit hash
         id: gl4es-sha
+        run: echo "::set-output name=sha::$(echo $(git ls-remote https://github.com/PojavLauncherTeam/gl4es-114-extra refs/heads/master | grep -io '^\S*'))"
         shell: bash
-        run: |
-          echo "sha=$(git ls-remote https://github.com/PojavLauncherTeam/gl4es-114-extra refs/heads/master | grep -io '^[^[:space:]]*')" >> "$GITHUB_OUTPUT"
 
       - name: Cache gl4es
-        if: false # use gl4es 1.1.5
         uses: actions/cache@main
+        if: false # use gl4es 1.1.5
         id: gl4es-cache
         with:
           path: gl4es/libs
@@ -62,13 +54,12 @@ jobs:
         if: false && steps.gl4es-cache.outputs.cache-hit != 'true'
         uses: actions/checkout@main
         with:
-          repository: PojavLauncherTeam/gl4es-114-extra
-          path: gl4es
+          repository: 'PojavLauncherTeam/gl4es-114-extra'
+          path: 'gl4es'
 
       - name: Build gl4es
         if: false && steps.gl4es-cache.outputs.cache-hit != 'true'
         continue-on-error: true
-        shell: bash
         run: |
           cd gl4es
           git config --global user.email "github-actions@users.noreply.github.com"
@@ -80,20 +71,19 @@ jobs:
             -DCMAKE_C_FLAGS=-Wno-error=implicit-function-declaration
           cmake --build build --config RelWithDebInfo --target GL
           cp -R lib/libGL.dylib ../Natives/resources/Frameworks/libgl4es_114.dylib
-
+          
       - name: Push gl4es
         if: false && github.event != 'pull_request' && github.ref_name == 'main' && steps.gl4es-cache.outputs.cache-hit != 'true'
         continue-on-error: true
-        shell: bash
         run: |
           git add Natives/resources/Frameworks/libgl4es_114.dylib
           git commit -am "CI: Update gl4es"
           git push
-
+          
       - name: Get JRE8
         uses: dawidd6/action-download-artifact@v2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{secrets.GITHUB_TOKEN}}
           workflow: build.yml
           path: depends
           workflow_conclusion: success
@@ -105,7 +95,7 @@ jobs:
       - name: Get JRE17
         uses: dawidd6/action-download-artifact@v2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{secrets.GITHUB_TOKEN}}
           workflow: build.yml
           path: depends
           workflow_conclusion: success
@@ -117,7 +107,7 @@ jobs:
       - name: Get JRE21
         uses: dawidd6/action-download-artifact@v2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{secrets.GITHUB_TOKEN}}
           workflow: build.yml
           path: depends
           workflow_conclusion: completed
@@ -129,21 +119,19 @@ jobs:
       - name: Build for ${{ matrix.platform_name }}
         env:
           password: ${{ secrets.ELLIE_MINI_SECRET }}
-        shell: bash
         run: |
           export PATH=/opt/procursus/bin:/opt/homebrew/bin:$PATH
           export RUNNER=1
-
-          if [ "${{ matrix.platform_name }}" = "ios" ]; then
+          if [ "${{ matrix.platform_name }}" == "ios" ]; then
             # Build ipa and tipa for iOS
-            gmake -j"$(nproc)" dsym package PLATFORM=${{ matrix.platform }}
-            gmake -j"$(nproc)" dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
-          elif [ "${{ matrix.platform_name }}" = "tvos" ]; then
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
+          elif [ "${{ matrix.platform_name }}" == "tvos" ]; then
             # Build tipa only for tvOS
-            gmake -j"$(nproc)" dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
           else
             # Build ipa only for everything else
-            gmake -j"$(nproc)" dsym package PLATFORM=${{ matrix.platform }}
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
           fi
 
       - name: Upload regular ipa
@@ -159,8 +147,8 @@ jobs:
           path: artifacts/net.kdt.pojavlauncher-*-${{ matrix.platform_name }}-trollstore.tipa
 
       - name: Upload PojavLauncher.dSYM
-        if: matrix.platform_name == 'ios'
         uses: actions/upload-artifact@main
+        if: matrix.platform_name == 'ios'
         with:
           name: PojavLauncher.dSYM
           path: artifacts/PojavLauncher.dSYM
